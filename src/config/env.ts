@@ -11,6 +11,8 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(1, "JWT_ACCESS_SECRET is required"),
 
   JWT_REFRESH_SECRET: z.string().min(1, "JWT_REFRESH_SECRET is required"),
+  JWT_ACCESS_EXPIRES_IN: z.coerce.number().int().positive().default(900),
+  JWT_REFRESH_EXPIRES_IN: z.coerce.number().int().positive().default(604800),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
