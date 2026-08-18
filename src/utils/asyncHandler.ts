@@ -6,7 +6,7 @@ type AsyncRequestHandler = (
   next: NextFunction,
 ) => Promise<unknown>;
 
-export const asynHandler = (
+export const asyncHandler = (
   requestHandler: AsyncRequestHandler,
 ): RequestHandler => {
   return (req, res, next) => {
