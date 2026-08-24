@@ -7,6 +7,7 @@ import {
   REFRESH_TOKEN_COOKIE_NAME,
 } from "./auth.cookies.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { ApiError } from "../../utils/ApiError.js";
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.register(req.body);
@@ -74,14 +75,20 @@ export const refreshAccessToken = asyncHandler(
 );
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
-  await authService.logout(req.user.userId);
+  if (!req.user) {
+    throw new ApiError(401, "Not authenticated");
+  }
+  await authService.logout(req.user?.id);
   res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, clearRefreshTokenCookieOptions);
 
   return res.status(200).json(new ApiResponse(200, null, "Logout successful"));
 });
 
 export const getMe = asyncHandler(async (req: Request, res: Response) => {
-  const user = await authService.getCurrentUser(req.user.userId);
+  if (!req.user) {
+    throw new ApiError(401, "Not authenticated");
+  }
+  const user = await authService.getCurrentUser(req.user.id);
 
   return res
     .status(200)

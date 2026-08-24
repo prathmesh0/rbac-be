@@ -12,7 +12,7 @@ const app = express();
 
 const corsOptions = {
   origin: env.FRONTEND_URL,
-  credential: true,
+  credentials: true,
 };
 
 // Security headers
