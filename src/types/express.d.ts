@@ -1,10 +1,16 @@
-import type { AuthenticatedUser } from "../modules/auth/auth.types.ts";
+import type { GetActionsQuery } from "../modules/actions/action.validation.js";
 
 declare global {
   namespace Express {
     interface Request {
-      user: AuthenticatedUser;
+      user?: {
+        id: string;
+        roles: string[];
+      };
+      validatedQuery?: unknown;
+      validatedParams?: unknown;
     }
   }
 }
+
 export {};

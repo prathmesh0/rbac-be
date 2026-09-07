@@ -12,7 +12,7 @@ export const validate =
   (schema: ZodType<ValidatedRequestData>) =>
   (req: Request, _res: Response, next: NextFunction) => {
     const result = schema.safeParse({
-      body: req.body,
+      body: req.body ?? {},
       params: req.params,
       query: req.query,
     });
@@ -28,6 +28,8 @@ export const validate =
 
     req.body = result.data.body;
     req.params = result.data.params as Request["params"];
+    req.validatedQuery = result.data.query;
+    req.validatedParams = result.data.params;
 
     // Do not assign result.data.query to req.query in Express 5.
 

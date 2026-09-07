@@ -35,7 +35,8 @@ export const authenticate = async (
     }
 
     req.user = {
-      userId: user._id.toString(),
+      id: user._id.toString(),
+      roles: user.roles.map((roleId) => roleId.toString()),
     };
     next();
   } catch (error) {
