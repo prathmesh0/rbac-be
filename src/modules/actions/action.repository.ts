@@ -83,4 +83,8 @@ export const actionRepository = {
   async deleteById(actionId: string) {
     return Action.findByIdAndDelete(actionId).exec();
   },
+
+  async findAllActive() {
+    return Action.find({ isActive: true }).sort({ code: 1 }).lean().exec();
+  },
 };

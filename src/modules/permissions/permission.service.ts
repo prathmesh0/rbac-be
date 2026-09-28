@@ -9,6 +9,8 @@ import type {
   UserPermissionSummary,
 } from "./permission.type.js";
 
+import { SUPER_ADMIN_ROLE_CODE } from "../../constants/rbac.constants.js";
+
 const validateActionIds = async (actionIds: string[]) => {
   const results = await Promise.all(
     actionIds.map((actionId) => actionRepository.findById(actionId)),
@@ -27,6 +29,13 @@ export const permissionService = {
     const role = await roleRepository.findById(data.roleId);
     if (!role) {
       throw new ApiError(404, `Role with id ${data.roleId} not found`);
+    }
+
+    if (role.isSystemRole) {
+      throw new ApiError(
+        403,
+        "System roles have implicit full access; permissions cannot be assigned to them",
+      );
     }
 
     const moduleDoc = await moduleRepository.findById(data.moduleId);
@@ -128,21 +137,45 @@ export const permissionService = {
       return { roles: [], permissions: [] };
     }
 
+    const rolesSummary = roles.map((role) => ({
+      id: String(role._id),
+      name: role.name,
+      code: role.code,
+    }));
+
+    // Super admin: computed at read time, so newly created modules and
+    // actions are covered instantly with no sync step.
+    if (roles.some((role) => role.code === SUPER_ADMIN_ROLE_CODE)) {
+      const [modules, actions] = await Promise.all([
+        moduleRepository.findAllActive(),
+        actionRepository.findAllActive(),
+      ]);
+      const allActionCodes = actions.map((action) => action.code);
+
+      return {
+        roles: rolesSummary,
+        permissions: modules.map((moduleDoc) => ({
+          module: {
+            id: String(moduleDoc._id),
+            name: moduleDoc.name,
+            code: moduleDoc.code,
+            path: moduleDoc.path,
+            icon: moduleDoc.icon,
+          },
+          actions: [...allActionCodes],
+        })),
+      };
+    }
+
     const roleIds = roles.map((role) => String(role._id));
     const permissionDocs = await permissionRepository.findByRoleIds(roleIds);
-
     const moduleMap = new Map<string, ModulePermissionSummary>();
 
     for (const doc of permissionDocs as any[]) {
       const moduleDoc = doc.moduleId;
-
-      // moduleId may be null if the referenced module was deleted, or the
-      // module may have since been deactivated - skip either case rather
-      // than surfacing a broken/ghost entry to the frontend.
       if (!moduleDoc || moduleDoc.isActive === false) continue;
 
       const moduleId = String(moduleDoc._id);
-
       const actionCodes = ((doc.actionIds ?? []) as any[])
         .filter((action) => action && action.isActive !== false)
         .map((action) => action.code as string);
@@ -162,19 +195,10 @@ export const permissionService = {
 
       const entry = moduleMap.get(moduleId)!;
       for (const code of actionCodes) {
-        if (!entry.actions.includes(code)) {
-          entry.actions.push(code);
-        }
+        if (!entry.actions.includes(code)) entry.actions.push(code);
       }
     }
 
-    return {
-      roles: roles.map((role) => ({
-        id: String(role._id),
-        name: role.name,
-        code: role.code,
-      })),
-      permissions: Array.from(moduleMap.values()),
-    };
+    return { roles: rolesSummary, permissions: Array.from(moduleMap.values()) };
   },
 };
