@@ -5,6 +5,7 @@ import {
   TokenPair,
 } from "./auth.types.js";
 import { userRepository } from "../users/user.repository.js";
+import { permissionService } from "../permissions/permission.service.js";
 import { ApiError } from "../../utils/ApiError.js";
 import {
   comparePassword,
@@ -17,17 +18,22 @@ import {
   generateRefreshToken,
   verifyRefreshToken,
 } from "../../utils/jwt.js";
-import { id } from "zod/locales";
 
-const sanitizeUser = (user: {
-  _id: unknown;
-  name: string;
-  email: string;
-}): AuthUser => {
+// Replaces sanitizeUser. Expects user.roles to be populated (real role
+// objects, not bare ObjectIds).
+const buildAuthUser = async (user: any): Promise<AuthUser> => {
+  const activeRoles = (user.roles ?? []).filter(
+    (role: any) => role && role.isActive !== false,
+  );
+
+  const summary = await permissionService.getUserPermissionSummary(activeRoles);
+
   return {
     id: String(user._id),
     name: user.name,
     email: user.email,
+    roles: summary.roles,
+    permissions: summary.permissions,
   };
 };
 
@@ -65,7 +71,8 @@ export const authService = {
     );
 
     return {
-      user: sanitizeUser(user),
+      // New user has no roles yet, so this returns roles: [], permissions: []
+      user: await buildAuthUser(user),
       ...tokens,
     };
   },
@@ -91,7 +98,6 @@ export const authService = {
     }
 
     const tokens = generateTokenPair(user._id.toString());
-
     const refreshTokenHash = await hashValue(tokens.refreshToken);
 
     await userRepository.updateRefreshTokenHash(
@@ -99,8 +105,13 @@ export const authService = {
       refreshTokenHash,
     );
 
+    // findByEmailWithPassword doesn't populate roles, so re-fetch populated
+    const populatedUser = await userRepository.findByIdPopulated(
+      user._id.toString(),
+    );
+
     return {
-      user: sanitizeUser(user),
+      user: await buildAuthUser(populatedUser),
       ...tokens,
     };
   },
@@ -143,8 +154,12 @@ export const authService = {
       refreshTokenHash,
     );
 
+    const populatedUser = await userRepository.findByIdPopulated(
+      user._id.toString(),
+    );
+
     return {
-      user: sanitizeUser(user),
+      user: await buildAuthUser(populatedUser),
       ...tokens,
     };
   },
@@ -154,7 +169,7 @@ export const authService = {
   },
 
   async getCurrentUser(userId: string) {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByIdPopulated(userId);
 
     if (!user) {
       throw new ApiError(404, "User not found");
@@ -163,6 +178,6 @@ export const authService = {
       throw new ApiError(403, "Your account has been deactivated");
     }
 
-    return sanitizeUser(user);
+    return buildAuthUser(user);
   },
 };

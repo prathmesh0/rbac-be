@@ -15,7 +15,13 @@ export interface ICreateUser {
   name: string;
   email: string;
   password: string;
-  roles?: Types.ObjectId[];
+}
+
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  password: string;
+  roles?: string[];
   isActive?: boolean;
 }
 
@@ -24,4 +30,17 @@ export interface UpdateUserData {
   email?: string;
   password?: string;
   isActive?: boolean;
+}
+
+export interface FindUsersOptions {
+  page: number;
+  limit: number;
+  search?: string;
+  isActive?: boolean;
+  roleId?: string;
+}
+
+export interface UpdateUserInput {
+  name?: string;
+  email?: string;
 }
